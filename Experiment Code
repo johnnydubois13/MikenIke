@@ -1,0 +1,467 @@
+from psychopy import data, core, visual, event, gui
+import time
+import os
+import pandas as pd
+import numpy as np
+from random import *
+import random
+
+import sys
+from time import sleep
+
+
+#Ensure that relative paths start from the same directory as this script
+directory = os.path.dirname(os.path.abspath(__file__)).decode(sys.getfilesystemencoding())
+os.chdir(directory)
+
+
+# Store info about the experiment session ##### TO MAKEexpInfo FIELDS BLANK, JUST HAVE THEM GO :''
+expName = 'MikenIke'
+
+
+####################################
+#debugg = True
+debugg = False
+####################################
+
+
+if debugg:
+    expInfo = {'participant':'999', 'age':'99', 'sex':'m', 'handedness':'r'}
+
+else:
+    expInfo = {'participant':'', 'age':'', 'sex':'', 'handedness':''}
+
+
+dlg = gui.DlgFromDict(dictionary=expInfo, title=expName)
+if not dlg.OK:
+    core.quit()
+
+expInfo['date'] = data.getDateStr()
+
+### create base filename to store data ###
+out_filename = "Data/%03d-%s-%s.csv" %(int(expInfo['participant']), expInfo['date'], 'experiment_task')
+
+
+# experiment handler
+thisExp = data.ExperimentHandler(name=expName,
+    extraInfo=expInfo, runtimeInfo=None,
+    originPath=None,
+    savePickle=False, saveWideText=True,
+    dataFileName=out_filename)
+
+
+endExpNow = False
+
+
+### monitor & mouse parameters ###
+monitor = 'iMac'
+monitorX = 1920.00
+monitorY = 1080.00
+#monitorX = 1280
+#monitorY = 720
+
+if debugg :
+    win = visual.Window(size = (monitorX, monitorY), fullscr = False, units = 'norm', monitor = monitor, colorSpace = 'rgb', color = 'white')
+    win.mouseVisible = True
+else:
+    win = visual.Window(size = (monitorX, monitorY), fullscr = True, units = 'norm', monitor = monitor, colorSpace = 'rgb', color = 'white')
+    win.mouseVisible = False
+
+
+
+
+# define feedback text (@ trial level)
+correct_Feedback = visual.TextStim(win = win, units = 'norm', colorSpace= 'rgb', color = 'green', font = 'Verdana',
+ text = 'Great!', pos = (0,0), height = 0.25)
+incorrect_Feedback = visual.TextStim(win = win, units = 'norm', colorSpace= 'rgb', color = 'red', font = 'Verdana',
+ text = 'Oops!', pos = (0,0), height = 0.25)
+faster_Feedback = visual.TextStim(win = win, units = 'norm', colorSpace= 'rgb', color = 'red', font = 'Verdana',
+ text = 'Too slow!', pos = (0,0), height = 0.25)
+
+
+
+
+# define fixation cross text
+fixcross = visual.TextStim(win=win, units = 'norm', name='fixcross',
+    text='+', font='Verdana', pos=[0, 0], height=0.1, color='black', colorSpace='rgb', depth=0.0)
+
+
+# define thank you screen text
+thanks_end = visual.TextStim(win=win, name = 'thanks_end',
+    text = "Thank you for your participation!",
+    font='Verdana',
+    pos=(0, 0), height=0.1, wrapWidth=None, ori=0,
+    color='black', colorSpace='rgb', opacity=1,
+    depth=0.0);
+
+
+
+
+# define instructions image list #
+if debugg:
+    instructions_list = ['Instr_img1.png', 'Instr_img6_speed.png']
+else: instructions_list = ['Instr_img1.png', 'Instr_img2.png', 'Instr_img3.png', 'Instr_img4.png', 'Instr_img5.png', 'Instr_img5_1.png', 'Instr_img6_speed.png']
+
+# make instr screen?
+full_image = visual.ImageStim(win=win, size=2, pos=[0, 0])
+
+
+
+# present instruction screens
+for instruction in instructions_list:
+    full_image.setImage('Other_Images/%s' % instruction) ### THE FIRST 'instructions' is the folder
+    full_image.draw()
+    win.flip()
+    while True:
+        time.sleep(1)  # Reduces amount of resources used
+        if event.getKeys(keyList=['escape', 'esc']):
+            core.quit()
+        elif event.getKeys(keyList=['space']):
+            break
+
+
+
+# define countdown to starting
+def waiting(sec):
+    while sec > 0:
+            sys.stdout.write(str(sec) + '     \r')
+            sec_num = visual.TextStim(win=win, units = 'norm', colorSpace = 'rgb', color = 'black', font = 'Verdana', name = 'sec_num', text = sec, pos = (0,0), height = .15)
+            sec_num.draw()
+            win.flip()
+            core.wait(1)
+            sec -= 1
+
+
+'''
+NEED TO SET UP TRIAL HANDLER TO HAVE REPETITIONS
+- targets seen 9 times, not_targets seen 1 time
+- Breakdown:
+    -A1-9 == 9
+    -B1-9 == 9
+    -A10  == 9
+    -B10  == 9
+'''
+### write a function to:
+# 1) generate a trial handler df
+# 2) save that trial handler as csv in participant data file
+
+def MakeTrialHandler():
+
+    df = pd.read_csv('Stim_List_AB.csv') # read csv in
+
+    dfA = df.iloc[0:10,] # list of only A stim
+    dfB = df.iloc[10:20,] # list of only B stim
+
+    rA = pd.DataFrame(dfA['stimuli'].sample(n=1))  # select one random A stim
+    rA_i=rA.iloc[0,0]
+
+    rB = pd.DataFrame(dfB['stimuli'].sample(n=1)) # select one random B stim
+    rB_i=rB.iloc[0,0]
+
+    rComb = [rA_i, rB_i] # put both targets in one place
+
+    is_target = df[df.stimuli.isin(rComb)] # make list of targets
+    is_NT = df[~df.stimuli.isin(rComb)] # make list of non-targets
+
+    is_target.loc[:,'label'] = 'Target' # add column for label: T or NT
+    is_NT.loc[:,'label'] = 'NT'
+
+    repeated = pd.concat([is_target]*9) # make df with repeated targets (9x)
+
+    dfs = [repeated, is_NT] # list of dfs to merge
+    merge_repeated = pd.concat(dfs) # actually merging the T & NT dfs
+    #print(len(merge_repeated)) # should be 36 (18T, 18NT)
+
+    return merge_repeated;
+
+### now prep trial handler (random, per participant)
+
+## call function
+df_trialHandler = MakeTrialHandler()
+print(df_trialHandler)
+
+## export as new csv (for participant's data file)
+# name = SID_age_dat_trialHandler
+trialHandler_root = 'Data/TrialHandlers'
+df_trialHandler.to_csv(trialHandler_root + '/' + "%03d-%s-%s-%s.csv" %(int(expInfo['participant']), expInfo['age'], expInfo['date'],'trialHandler'), index=False) # write trial handler to CSV (just for saving in new folder)
+
+
+## want to have a column in real data output file indicating what the targets were (ex. in R: mastdat$T1 = A1; mastdat$T2 = B8)
+dfTargets = df_trialHandler.loc[df_trialHandler['label'] == 'Target']
+#print(dfTargets)
+
+Ts = dfTargets.stimuli.unique() # a list of the two targets
+#print(Ts)
+
+T1 = Ts[0] # the first target in list Ts
+#print(T1)
+
+T2 = Ts[1] # the second target in list Ts
+#print(T2)
+
+
+# get trial handler from csv written by trialHandler function
+in_filename = (trialHandler_root + '/' + "%03d-%s-%s-%s.csv" %(int(expInfo['participant']), expInfo['age'], expInfo['date'],'trialHandler')) # read in csv just written to data folder - per participant!
+print in_filename
+
+
+# prep a counter for block number; initial value is one
+block_num = 0
+block_num = float(block_num)
+
+# prep block average calculation (also need for block feedback)
+block_avg = 0
+block_avg  = float(block_avg)
+as_prop = 0
+
+
+# start countdown before trials begin
+waiting(3)
+
+
+
+## setup for variable stimulus positions & sizes
+norm_pos= [ # stimulus xy location in normed units: shifts by 1% of screen
+(-.01,.01),
+(-.01,0),
+(-.01,-.01),
+(0,.01),
+(0,0),
+(0,-.01),
+(.01,.01),
+(.01,0),
+(.01,-.01)]
+
+
+norm_size = [(0.456,.76), (0.48,.8), (0.504,.84)] # stimulus size in norm units: +- 5% of original stimulus size
+
+## how many blocks to run (since index starts at 0, 5 here means run 5 blocks)
+if debugg: blocks2Run = 1
+else: blocks2Run = 5
+
+# start a counter for total trial number (across blocks: ex, 0-400)
+total_trial_num = 0 # may need to move up out of this while loop
+
+
+while block_num < blocks2Run:
+
+    trial_handler = data.TrialHandler(nReps=1, method='random',
+        extraInfo=None, trialList=data.importConditions(in_filename),
+        seed=None, name='')
+
+    # add trial handler to exp handler
+    thisExp.addLoop(trial_handler)
+
+    # Used to keep track of response for a trial
+    response = event.BuilderKeyResponse()
+
+    #blank_img = visual.ImageStim(win = win, units = 'norm', image = 'Stimuli/A1.PNG', name = 'Blank_img', pos = (0,0))
+    blank_img = visual.ImageStim(win = win, units = 'norm', image = 'Stimuli/A1.PNG', name = 'Blank_img') # position & size are set below
+
+    # call up correct answer from column in csv
+    corAns=trial_handler.trialList[0].corAns
+
+    # make empty list for NUMERICAL responses to append (to sum)
+    resp_list = []
+
+    # go through every trial/row in the CSV
+    for trial in trial_handler:
+
+        corAns = trial.corAns
+
+        # set stimulus size & position
+        blank_img.setSize(random.choice(norm_size), log=None)
+        blank_img.setPos(random.choice(norm_pos), log=None)
+        blank_img.setImage(trial['stimuli'])
+        print(blank_img.size)
+        print(blank_img.pos)
+
+        # draw  stimulus on screen
+        blank_img.draw()
+        win.flip()
+
+        # Reset response timer to start counting from 0
+        response.clock.reset()
+
+
+        # Clear all pressed keys before starting next trial
+        # This is used just in case user pressed a key in between trials
+        event.clearEvents()
+
+        found = False
+        timely_response = False
+        response.nums=[]
+
+        # Keep displaying text until response (escape, f or j)
+        while response.clock.getTime() < 1:
+            theseKeys = event.getKeys(keyList=['j','f', 'esc', 'escape'])
+            if(len(theseKeys)>0 and not found):
+                response.keys=theseKeys[0]
+                response.RT=response.clock.getTime()
+                found = True
+
+
+                if(((response.keys=='f') and (corAns=='f'))) or ((response.keys=='j') and (corAns=='j')):
+                    correct_Feedback.draw()
+                    win.flip()
+                    timely_response=True
+                    response.nums=1
+
+                elif(((response.keys=='f') and (corAns=='j'))) or ((response.keys=='j') and (corAns=='f')):
+                    incorrect_Feedback.draw()
+                    win.flip()
+                    timely_response=True
+                    response.nums=0
+
+                elif(response.keys=='esc'):
+                    win.close
+                    core.quit()
+                    endExpNow = True
+
+                elif(response.keys=='escape'):
+                    win.close
+                    core.quit()
+                    endExpNow = True
+
+        # for slow responses (still in 10 second response window)
+        while response.clock.getTime() < 10 and not timely_response:
+            win.flip(clearBuffer=True)
+
+
+            theseKeys = event.getKeys(keyList=['j','f', 'esc', 'escape'])
+            if(len(theseKeys)>0 and not found):
+                response.keys=theseKeys[0]
+                response.RT=response.clock.getTime()
+                found = True
+
+                if(((response.keys=='f') and (corAns=='f'))) or ((response.keys=='j') and (corAns=='j')):
+                    correct_Feedback.draw()
+                    win.flip()
+                    response.nums=1
+
+                elif(((response.keys=='f') and (corAns=='j'))) or ((response.keys=='j') and (corAns=='f')):
+                    incorrect_Feedback.draw()
+                    win.flip()
+                    response.nums=0
+
+                elif(response.keys=='esc'):
+                    win.close
+                    core.quit()
+                    endExpNow = True
+
+                elif(response.keys=='escape'):
+                    win.close
+                    core.quit()
+                    endExpNow = True
+
+                core.wait(.300) # this is like the ISI - sets how long trial feedback on screen
+
+            if(len(theseKeys)>0 and found): break
+
+        if not found:
+            response.keys=0.0
+
+            response.RT=0.0
+
+            timely_response = False
+            faster_Feedback.draw()
+            win.flip()
+
+            response.nums=0.0
+
+
+        total_trial_num = (total_trial_num +1)
+        core.wait(.300) # this is like the ISI - sets how long feedback on screen
+        win.clearBuffer()
+
+        ### calculate mean for block
+        #block_mean = response.keys()
+
+        # Add the response and response time to the ExperimentHandler which will add it to the output file for the
+        # given trial.
+        thisExp.addData('my_response', response.keys)
+        thisExp.addData('my_response_time', response.RT)
+        thisExp.addData('acc_num', response.nums)
+        thisExp.addData('block_num', block_num)
+        thisExp.addData('in_filename', in_filename)
+
+        thisExp.addData('as_prop_back1block', as_prop)
+        thisExp.addData('total_trial_num', total_trial_num)
+
+        thisExp.addData('Ts', Ts)
+        thisExp.addData('T1', T1)
+        thisExp.addData('T2', T2)
+
+
+        resp_list.append(response.nums)
+
+        # Inform the ExperimentHandler that you are moving on to the next trial
+        # This is required for the output file generation
+        thisExp.nextEntry()
+
+
+    # add 1 to block num counter
+    block_num = (block_num +1 )
+    #print(block_num)
+
+
+
+    ### ADD BLOCK FEEDBACK ####
+
+    # caculate & display block average accuracy
+    print(resp_list) # - list of all trial responses
+    resp_mean = np.nanmean(resp_list) # - calculate mean of that list
+    #print(resp_mean) # - mean of that list
+    block_avg = resp_mean
+    as_prop = block_avg*100
+    print(as_prop)
+
+
+    # define block feedback overall (no more above/below)
+    block_feedbacktxt = visual.TextStim(win=win, units = 'norm', colorSpace = 'rgb', color = 'black', font = 'Verdana',
+     name = 'block_feedback', text = "You got %s %% correct" % (int(as_prop)), pos = (0,0), height = .1)
+
+    # define rest screen
+    rest_screen = visual.TextStim(win=win, units = 'norm', colorSpace = 'rgb', color = 'black', font = 'Verdana',
+     name = 'rest_screen', text = "Press space to begin", pos = (0,0), height = .1)
+
+    # update list of items (resp_list)
+    resp_list = []
+
+
+    # draw fixation cross
+    fixcross.draw()
+    win.flip()
+    core.wait(.5) # this is the fixation cross duration
+
+    # present block feedback
+    block_feedbacktxt.draw() # if block_avg > 0:
+    win.flip()
+    core.wait(5)
+
+
+    # have a rest screen - end via spacebar
+    win.clearBuffer()
+    rest_screen.draw()
+    win.flip()
+    while True:
+        time.sleep(1)  # Reduces amount of resources used
+        if event.getKeys(keyList=['escape', 'esc']):
+            core.quit()
+        elif event.getKeys(keyList=['space']):
+            break
+
+
+
+'''
+end experiment
+'''
+# show thank you screen #
+thanks_end.draw()
+win.flip()
+core.wait(5) # how long thank-you screen appears
+
+
+#s.quit()
+win.close()
+core.quit()
